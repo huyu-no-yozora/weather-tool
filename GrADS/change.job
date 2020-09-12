@@ -1,0 +1,16 @@
+#/bin/sh
+####################################
+set kaizodo = 360
+####################################
+
+#cd .epsdir
+ foreach file(*.eps)
+  set file2 = `expr $file : '\(.*\).eps'`
+#  convert -rotate 90 -density $kaizodo $file $file2.jpg
+  ps2raster -Tj -A $file
+  convert -rotate 90 -density $kaizodo $file2.jpg $file2.jpg
+  echo "$file jpg change end"
+  rm -f $file
+ end
+# end
+  echo " END "
