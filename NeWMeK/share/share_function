@@ -1,0 +1,222 @@
+#!/bin/bash
+#***************************************************#
+#function
+#****************************************************#
+function _select_wind_declare_() {
+if [ "${MOMENTorMEAN}" = "MOMENT" ]; then
+echo -e "
+*===================================================*
+*=====   SELECT_WIND_FILE = MOMENT WIND FILE   =====*
+*===================================================*
+"
+elif [ "${MOMENTorMEAN}" = "MEAN"   ]; then
+echo -e "
+*===================================================*
+*======   SELECT_WIND_FILE = MEAN WIND FILE   ======*
+*===================================================*
+"
+fi
+}
+
+# definition of MOMENT_WIND_DIR or MEAN_WIND_DIR
+function _wind_dir_file_definition_() {
+if [ "${MOMENTorMEAN}" = "MOMENT" ]; then
+# 瞬間風速
+_MOMENT_WINDFILE_DIR_=$(echo ${MOMENT_WINDFILE_DIR_FORMAT})
+_MOMENT_WINDFILE_NAME_=$(echo ${MOMENT_WINDFILE_NAME_FORMAT})
+MOMENT_WINDFILE=${_MOMENT_WINDFILE_DIR_}/${_MOMENT_WINDFILE_NAME_}
+elif [ "${MOMENTorMEAN}" = "MEAN" ]; then
+# 平均風速
+_MEAN_WIND_DIR_=$(echo ${MEAN_WIND_DIR_FORMAT})
+_MEAN_WIND_NAME_=$(echo ${MEAN_WIND_NAME_FORMAT})
+MEAN_WINDFILE=${_MEAN_WIND_DIR_}/${_MEAN_WIND_NAME_}
+fi
+}
+
+#変数SELECT_WINDFINEの定義
+function _def_slected_windfile_() {
+if   [ "${MOMENTorMEAN}" = "MOMENT" ]; then SELECT_WINDFILE=${MOMENT_WINDFILE}
+elif [ "${MOMENTorMEAN}" = "MEAN"   ]; then SELECT_WINDFILE=${MEAN_WINDFILE}
+else : ; fi
+}
+
+# station_numの文字数を揃えた変数の導入(for file name)
+function _mod_station_num_interface_() {
+if   [ ${station_num} -le  9 ]; then mod_station_num=00${station_num}
+elif [ ${station_num} -le 99 ]; then mod_station_num=0${station_num}
+else mod_station_num=${station_num}
+fi
+}
+#****************************************************#
+#***************************************************#
+
+#****************************************************#
+# station_read_counter 及び wind_read_counterの初期設定
+function _initial_read_counter_() {
+station_read_counter=1
+wind_read_counter=1
+}
+#****************************************************#
+
+###############################################################
+####################### [ 時刻設定関連 ] #######################
+###############################################################
+
+# time_stepのカウンタ用のinterface
+function _timestep_counter_interface_() {
+case "${time_step}" in
+ 1sec) time_step_counter=1;;
+ 2sec) time_step_counter=2;;
+ 3sec) time_step_counter=3;;
+ 4sec) time_step_counter=4;;
+ 5sec) time_step_counter=5;;
+10sec) time_step_counter=10;;
+15sec) time_step_counter=15;;
+20sec) time_step_counter=20;;
+30sec) time_step_counter=30;;
+ 1min) time_step_counter=60;;
+ 2min) time_step_counter=120;;
+ 3min) time_step_counter=180;;
+ 5min) time_step_counter=300;;
+10min) time_step_counter=600;;
+20min) time_step_counter=1200;;
+30min) time_step_counter=1800;;
+    *)
+#echo -e "Not deal with that configuration\nStopped" | tee ${Log} ; exit ;;
+echo -e "Not deal with that configuration\nStopped"; exit
+;;
+esac
+}
+
+# sec, min 用 (間接的に SEC, MIN, hour, HOUR用) の time_step
+#time_stepがsec単位の場合とmin単位の場合のtime_step_counter
+function _secmin_timestep_interface_() {
+case "${time_step}"  in
+ 1sec) min_time_step=0 ; sec_time_step=1  ;;
+ 2sec) min_time_step=0 ; sec_time_step=2  ;;
+ 3sec) min_time_step=0 ; sec_time_step=3  ;;
+ 5sec) min_time_step=0 ; sec_time_step=5  ;;
+10sec) min_time_step=0 ; sec_time_step=10 ;;
+20sec) min_time_step=0 ; sec_time_step=20 ;;
+30sec) min_time_step=0 ; sec_time_step=30 ;;
+ 1min) min_time_step=1 ; sec_time_step=0  ;;
+ 2min) min_time_step=2 ; sec_time_step=0  ;;
+ 3min) min_time_step=3 ; sec_time_step=0  ;;
+ 5min) min_time_step=5 ; sec_time_step=0  ;;
+10min) min_time_step=10; sec_time_step=0  ;;
+20min) min_time_step=20; sec_time_step=0  ;;
+30min) min_time_step=30; sec_time_step=0  ;;
+esac
+}
+#====================================================#
+#====================================================#
+
+#time_step_counterに応じた時刻の計算及び時間に関する文字数をそろえる
+function _time_interface_() {
+case "${time_step}"  in
+*sec)
+########################################################
+########################################################
+#計算用の変数を初期化（最初にを付けないように（付けたら8進数として計算されエラー））
+second=$(expr ${second} + 0); min=$(expr ${min} + 0); hour=$(expr ${hour} + 0)
+echo "hour:min:second  ---  ${hour}:${min}:${second}"
+#
+if [ "${second}" -ge 61 ]; then
+  second=$((sec_time_step + 1)); min=$((min + 1))
+  # second and SECOND , and... 
+  if [ "${second}" -le 9 ]; then
+    second=${sec_time_step}; SECOND='0'${second}
+  else
+    SECOND=${second} 
+  fi
+  #==========================================#
+    #MINだけでなく、更にHOURも切り替わることも
+    if [ "${min}" -eq 60 ]; then
+      #min=$((min_time_step)); hour=$((hour+1))
+      min=0; hour=$((hour + 1))
+      if [ "${hour}" -le 9 ]; then
+        hour=$(expr ${hour} + 0); HOUR='0'${hour}
+      else
+        HOUR=${hour}
+      fi
+    fi
+  #==========================================#
+  if [ "${min}" -le 9 ];then
+    min=$(expr ${min} + 0); MIN='0'${min}
+  else
+    MIN=${min}
+  fi
+fi
+echo "HOUR:MIN:SECOND  ---  ${HOUR}:${MIN}:${SECOND}"
+;;
+########################################################
+########################################################
+*min)
+########################################################
+########################################################
+#計算用の変数を初期化（最初にを付けないように（付けたら8進数として計算されエラー）） 
+second=$(expr ${second} + 0); min=$(expr ${min} + 0); hour=$(expr ${hour} + 0)
+echo "hour:min:second  ---  ${hour}:${min}:${second}"
+#==============================================#
+# second and SECOND (SECONDは変わらない)
+if [ "${second}" -le 9 ]; then SECOND='0'${second}; else SECOND=${second}; fi
+#==============================================#
+# min and MIN , and... hour and HOUR
+if [ "${min}" -eq 60 ]; then
+  #==============================================#
+  min=0; hour=$((hour + 1))
+  #==============================================#
+  if [ "${min}" -le 9 ]; then
+    min=$(expr ${min} + 0); MIN='0'${min_time_step}
+  else
+    MIN=${min}
+  fi
+  if [ "${hour}" -le 9  ]; then
+    hour=$(expr ${hour} + 0); HOUR='0'${hour}
+  else
+    HOUR=${hour}
+  fi
+  #==============================================#
+fi
+if [ "${min}" -le 9 ]; then
+  min=$(expr ${min} + 0); MIN='0'${min}
+else
+  MIN=${min}
+fi
+echo "HOUR:MIN:SECOND  ---  ${HOUR}:${MIN}:${SECOND}"
+;;
+########################################################
+########################################################
+esac
+}
+
+# second or min の更新設定
+function _secmin_counter_step_() {
+case "${time_step}" in
+*sec) second=$(expr ${second} + ${sec_time_step});;
+*min) min=$(expr ${min} + ${min_time_step});;
+esac
+}
+###############################################################
+####################### [ 時刻設定関連 ] #######################
+###############################################################
+
+#****************************************************#
+#exprを使う際はスペースを入れていくことに注意！！！
+#
+#****************************************************#
+## 「いちstationのデータが何行あるか」
+#case "${time_step}" in
+#*sec) 
+#s_read_counter=2
+##e_read_counter=$((43200/sec_time_step +1))
+#;;
+#*min) 
+#s_read_counter=2
+##e_read_counter=$((43200/(min_time_step*60) +1))
+#;;
+#esac
+#****************************************************#
+#second=$((second+sec_step_counter))
+#min=$((min+min_step_counter))
+
