@@ -1,0 +1,40 @@
+#!/bin/bash
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#
+
+#stationの緯度経度情報(修正済み：度分秒==>度 表示)のファイルPATH
+function _modplace_format_definition_() {
+##################################################################
+#stationの緯度経度情報(org_data/place.csvより抽出)
+MOD_PLACE_FILE_FORMAT=${DATADIR}/org_data/MOD_PLACE/place_lonlat.txt
+##################################################################
+}
+
+#wind dataのファイルPATH
+function _winddir_format_definition_() {
+##################################################################
+#緯度経度情報付きの風データ
+case "${MOMENTorMEAN}" in
+# 瞬間風速
+"MOMENT")
+MOMENT_WINDFILE_DIR_FORMAT=${DATADIR}/org_data/WIND_EXTRACTION
+MOMENT_WINDFILE_NAME_FORMAT=moment_Second_${DATE}_${mod_station_num}_${AMorPM}.txt
+;;
+"MEAN")
+# 平均風速
+MEAN_WIND_DIR_FORMAT=${DATADIR}/produce/${mean_time}
+MEAN_WIND_NAME_FORMAT=mean_${mean_time}_data_${DATE}_${mod_station_num}.csv
+;;
+esac
+##################################################################
+}
+
+#出力画像の出力先PATH
+function _image_format_definition_() {
+##################################################################
+IMAGE_DIR_FORMAT=${DATADIR}/gmt/IMAGE
+IMAGE_NAME_FORMAT=${mean_time}_data_${DATE}_${mod_station_num}_${HOUR}:${MIN}:${SECOND}.ps
+#IMAGE_NAME_FORMAT='mean_${mean_time}_data_${DATE}_${mod_station_num}.ps'
+##################################################################
+}
+
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#

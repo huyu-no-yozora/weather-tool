@@ -1,0 +1,31 @@
+#!/bin/bash
+#出力する画像ファイルのディレクトリ及びファイル名を定義
+function _image_definition_() {
+_IMAGE_DIR_=$(echo ${IMAGE_DIR_FORMAT})
+_IMAGE_NAME_=$(echo ${IMAGE_NAME_FORMAT})
+IMAGE=${_IMAGE_DIR_}/${_IMAGE_NAME_}
+}
+
+function _lonlat_interface_() {
+#awk share option
+draw_lon=$(cut -d ',' -f ${station_lon_row} ${MOD_PLACE_FILE} | sed -n "${station_read_counter}p")
+draw_lat=$(cut -d ',' -f ${station_lat_row} ${MOD_PLACE_FILE} | sed -n "${station_read_counter}p")
+station_point="${draw_lon},${draw_lat},"
+extracted_rows="\$${windspeed_row}*0.003,\$${winddirection_row}"
+#
+awk_shareopt=${station_point}${extracted_rows}
+station_read_counter=$((station_read_counter+1))
+}
+
+# wind directionの修正(度表示)及びwind_read_counterの更新設定
+function _wind_interface_(){
+### MOMENT #windspeed_row=4,winddirection_row=5
+### MEAN   #windspeed_row=3,winddirection_row=5
+org_wind_speed=$(cut -d ',' -f ${windspeed_row} ${SELECT_WINDFILE} | sed -n "${wind_read_counter}p" | bc)
+MOD_WIND_SPEED=$(echo "scale=5; ${org_wind_speed}" | bc)
+org_wind_direction=$(cut -d ',' -f ${winddirection_row} ${SELECT_WINDFILE} | sed -n "${wind_read_counter}p" | bc)
+#mod_value
+mod_value=$(echo ${org_wind_direction} | awk '{print $1*22.5+180}')
+MOD_WIND_DIRECTION=$(echo "scale=5; ${mod_value}" | bc)
+wind_read_counter=$((wind_read_counter+1))
+}

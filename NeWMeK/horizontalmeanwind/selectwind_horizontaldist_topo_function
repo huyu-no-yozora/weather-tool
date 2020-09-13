@@ -1,0 +1,120 @@
+#!/bin/bash
+#出力する画像ファイルのディレクトリ及びファイル名を定義
+function _image_definition_() {
+_IMAGE_DIR_=$(echo ${IMAGE_DIR_FORMAT})
+_IMAGE_NAME_=$(echo ${IMAGE_NAME_FORMAT})
+IMAGE=${_IMAGE_DIR_}/${_IMAGE_NAME_}
+}
+
+function _lonlat_interface_() {
+#awk share option
+draw_lon=$(cut -d ',' -f ${station_lon_row} ${MOD_PLACE_FILE} | sed -n "${station_read_counter}p")
+draw_lat=$(cut -d ',' -f ${station_lat_row} ${MOD_PLACE_FILE} | sed -n "${station_read_counter}p")
+echo "lon of station number ${station_num} = ${draw_lon}"
+echo "lat of station number ${station_num} = ${draw_lat}"
+}
+
+# wind directionの修正(度表示)及びwind_read_counterの更新設定
+function _wind_interface_(){
+
+#[For wind direction] #############################
+#オリジナルの風向
+org_direction=$(cut -d ',' -f ${winddirection_row} ${SELECT_WINDFILE} | sed -n "${wind_read_counter}p" | sed -e "s@ @@g")
+##オリジナルの風向値の修正 (0< wind direction <1の場合に.???となっているのを0.???と書き換え)
+#if [[ "${org_direction}" > 0 && ${org_direction} < 1 ]]; then
+#     org_wind_direction=$(echo ${org_direction} | sed -e "s@\.@0.@")
+#else org_wind_direction=${org_direction}
+#fi
+org_wind_direction=${org_direction}
+#風向の値の修正---度表示(wind direction*22.5+180)
+mod_value_rule=$(echo "${org_wind_direction}" | awk '('${org_wind_direction}' != '${missing_value}') {print $1*22.5+180}')
+MOD_DIRECTION=$(echo "scale=5; ${mod_value_rule}" | bc -l) 
+#度表示にした風向値の修正 (0< modified wind direction <1の場合に.???となっているのを0.???と書き換え)
+if [[ "${MOD_DIRECTION}" > 0 && "${MOD_DIRECTION}" < 1 ]]; then
+     MOD_WIND_DIRECTION=$(echo ${MOD_DIRECTION} | sed -e "s@\.@0.@")
+else MOD_WIND_DIRECTION=${MOD_DIRECTION}
+fi
+###################################################
+
+#[For wind speed] #################################
+### MOMENT #windspeed_row=4,winddirection_row=5
+### MEAN   #windspeed_row=3,winddirection_row=5
+#オリジナルの風速
+org_speed=$(cut -d ',' -f ${windspeed_row} ${SELECT_WINDFILE} | sed -n "${wind_read_counter}p" | sed -e "s@ @@g")
+##オリジナルの風速値の修正 (0< wind speed <1の場合に.???となっているのを0.???と書き換え)
+#if [[ "${org_speed}" > 0 && "${org_speed}" < 1 ]]; then
+#     org_wind_speed=$(echo ${org_speed} | sed -e "s@\.@0.@")
+#else org_wind_speed=${org_speed}
+#fi
+org_wind_speed=${org_speed}
+#風速の値のスケーリング---補正値に注意(speed_scaling_value)
+mod_speed_value_rule=$(echo "${org_wind_speed}" | awk '('${org_wind_speed}' != '${missing_value}') {print $1*'${speed_scaling_value}'}')
+#スケーリングした風速値の修正 (0< modified wind speed <1の場合に.???となっているのを0.???と書き換え)
+if [[ "${mod_speed_value_rule}" > 0 && "${mod_speed_value_rule}" < 1 ]]; then
+  MOD_SPEED=$(echo "scale=5; ${mod_speed_value_rule}" | bc -l | sed -e "s@\.@0.@")
+  MOD_WIND_SPEED=${MOD_SPEED}
+else
+  MOD_SPEED=$(echo "scale=5; ${mod_speed_value_rule}" | bc -l)
+  MOD_WIND_SPEED=${MOD_SPEED}
+fi
+####################################################
+
+#confirmation
+echo "org_wind_direction of station number ${station_num} = ${org_wind_direction}"
+echo "org_wind_speed     of station number ${station_num} = ${org_wind_speed}"
+echo "MOD_WIND_DIRECTION of station number ${station_num} = ${MOD_WIND_DIRECTION}"
+echo "MOD_WIND_SPEED     of station number ${station_num} = ${MOD_WIND_SPEED}"
+#
+#wind_read_counter=$((wind_read_counter+1))
+}
+
+function _awk_shareopt_interface_() {
+#[pre(wrong)]
+#################################################################
+##補正値に注意
+#mod_windspeed=\$"${windspeed_row}*${speed_scaling_value}"
+#winddirection_row_for_awk=\$"${winddirection_row}"
+#wind_
+#extracted_rows="${winddirection_row_for_awk},${mod_windspeed}"
+##
+#awk_shareopt="${station_point}${extracted_rows}"
+#################################################################
+station_point="${draw_lon},${draw_lat},"
+extracted_windvalues="${MOD_WIND_DIRECTION},${MOD_WIND_SPEED}"
+awk_shareopt="${station_point}${org_wind_speed},${extracted_windvalues}"
+}
+
+function _sample_wind_interface_() {
+#[For sample wind] #################################
+#サンプル風速の値のスケーリング---補正値に注意(speed_scaling_value)
+scaling_sample_speed_value=$(echo "${sample_speed}*${speed_scaling_value}" | bc)
+#スケーリングしたサンプル風速値の修正 (0< modified wind speed <1の場合に.???となっているのを0.???と書き換え)
+if [[ "${scaling_sample_speed_value}" > 0 && "${scaling_sample_speed_value}" < 1 ]]; then
+  SCALING_SPEED=$(echo "scale=5; ${scaling_sample_speed_value}" | bc -l | sed -e "s@\.@0.@")
+  SCALING_SAMPLE_SPEED=${SCALING_SPEED}
+else
+  SCALING_SPEED=$(echo "scale=5; ${scaling_sample_speed_value}" | bc -l)
+  SCALING_SAMPLE_SPEED=${SCALING_SPEED}
+fi
+####################################################
+}
+
+function _topo_drawing_settings_() {
+#===========================
+#[drawing topograpy share option]
+# file name of topography data(grid file)
+topodata="ETOPO1_Ice_g_gmt4.grd"
+#basename of cutted topo data file
+tmpfile="topography"
+# settings of share option
+grdcut_shareopt="${TOPODIR}/${topodata} -R128/133/30/35 -G${TOPODIR}/${tmpfile}.grd"
+grdimage_shareopt="${TOPODIR}/${tmpfile}.grd -R -JM14 -C${TOPODIR}/GMT_relief.cpt -P -X2 -Y3"
+psscale_shareopt="-Ba200g200f200 -C${TOPODIR}/GMT_relief.cpt -D15.5/8/12/0.3"
+#===========================
+}
+
+#############################
+#memo
+#echo "434.8776 % 360" | bc
+#############################
+
